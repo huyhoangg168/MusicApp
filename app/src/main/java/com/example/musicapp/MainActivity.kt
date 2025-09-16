@@ -31,18 +31,16 @@ fun AppNavigator() {
     NavHost(navController = navController, startDestination = Screen.Login.route) {
         composable(Screen.Login.route) {
             LoginScreen(
-                navController = navController
-//                onSignUpClick = { navController.navigate(Screen.Register.route) },
-//                onGoogleSignInClick = { /* TODO: Google login */ },
-//                onForgotPasswordClick = { /* TODO: Forgot password */ }
+                navController = navController,
+                onSignUpClick = { navController.navigate(Screen.Register.route) },
             )
         }
 
         composable(Screen.Register.route) {
             RegisterScreen(
-                navController = navController
-                //onSignInClick = { navController.navigate(Screen.Login.route) },
-//                onSignUpClick = { email, password, confirmPassword ->
+                navController = navController,
+                onSignInClick = { navController.navigate(Screen.Login.route) },
+//                onSignUpClick = {
 //                    // TODO: gọi Firebase tạo tài khoản -> BE -> navigate Home nếu OK
 //                }
             )

@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.musicapp.R
@@ -25,16 +24,14 @@ import com.example.musicapp.views.components.InputField
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.musicapp.navigationpackage.Screen
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.example.musicapp.utils.rememberGoogleAuthLauncher
+import com.example.musicapp.views.components.ForgotPasswordDialog
 
 @Composable
 fun LoginScreen(
     navController : NavController,
     viewModel: LoginViewModel = viewModel(),
     onSignUpClick: () -> Unit = {},
-    onGoogleSignInClick: () -> Unit = {},
-    onForgotPasswordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val loginState by viewModel.loginState.collectAsState()
@@ -42,6 +39,9 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotDialog by remember { mutableStateOf(false) }
+
+    val (googleClient, launcher) = rememberGoogleAuthLauncher(viewModel)
 
     Column(
         modifier = Modifier
@@ -92,28 +92,14 @@ fun LoginScreen(
                 text = "Forgot password?",
                 color = Color.Blue,
                 fontSize = 14.sp,
-                modifier = Modifier.clickable { onForgotPasswordClick() }
+                modifier = Modifier.clickable { showForgotDialog = true }
             )
         }
 
         // Sign In button
         Button(
             onClick = {
-                Firebase.auth.signInWithEmailAndPassword(email, password)
-                    .addOnSuccessListener { result ->
-                        val user = result.user
-                        user?.let {
-                            viewModel.loginWithFirebase(
-                                uid = it.uid,
-                                email = it.email ?: "",
-                                name = it.displayName,
-                                avatar = it.photoUrl?.toString()
-                            )
-                        }
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(context, "Login thất bại", Toast.LENGTH_SHORT).show()
-                    }
+                viewModel.validateAndLogin(email,password)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -128,10 +114,22 @@ fun LoginScreen(
             Text("SIGN IN", fontSize = 16.sp)
         }
 
+        // Observe state
         when (loginState) {
             is LoginState.Loading -> CircularProgressIndicator()
-            is LoginState.Success -> Text("Xin chào ${(loginState as LoginState.Success).user.email}")
-            is LoginState.Error -> Text((loginState as LoginState.Error).message, color = Color.Red)
+            is LoginState.Success -> {
+                LaunchedEffect(Unit) {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            }
+            is LoginState.Error -> {
+                val errorMessage = (loginState as LoginState.Error).message
+                LaunchedEffect(errorMessage) {
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                }
+            }
             else -> {}
         }
 
@@ -153,7 +151,7 @@ fun LoginScreen(
 
         // Google Sign-In button
         OutlinedButton(
-            onClick = { onGoogleSignInClick() },
+            onClick = { launcher.launch(googleClient.signInIntent) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -170,7 +168,7 @@ fun LoginScreen(
                 tint = Color.Unspecified // để giữ màu gốc của icon Google
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Đăng nhập với Google")
+            Text("Login with Google")
         }
 
         // Sign Up link
@@ -182,7 +180,7 @@ fun LoginScreen(
             Text(
                 text = "SIGN UP NOW",
                 color = Color.Blue,
-                modifier = Modifier.clickable {  navController.navigate(Screen.Register.route) }
+                modifier = Modifier.clickable { onSignUpClick() }
             )
         }
 
@@ -198,20 +196,11 @@ fun LoginScreen(
         )
     }
 
-    // Observe state
-    when (loginState) {
-        is LoginState.Loading -> CircularProgressIndicator()
-        is LoginState.Success -> {
-            LaunchedEffect(Unit) {
-                navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
-                }
-            }
-        }
-        is LoginState.Error -> {
-            Text((loginState as LoginState.Error).message, color = Color.Red)
-        }
-        else -> {}
+    if (showForgotDialog) {
+        ForgotPasswordDialog(
+            viewModel = viewModel,
+            onDismiss = { showForgotDialog = false }
+        )
     }
 }
 

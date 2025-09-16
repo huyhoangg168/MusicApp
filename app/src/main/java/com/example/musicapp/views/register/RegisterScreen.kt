@@ -23,8 +23,7 @@ import androidx.navigation.NavController
 import com.example.musicapp.R
 import com.example.musicapp.navigationpackage.Screen
 import com.example.musicapp.views.components.InputField
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+
 
 @Composable
 fun RegisterScreen(
@@ -73,7 +72,7 @@ fun RegisterScreen(
             value = email,
             onValueChange = { email = it },
             placeholder = "Email",
-            leadingIcon = R.drawable.ic_user
+            leadingIcon = R.drawable.ic_email
         )
 
         // Password field
@@ -101,25 +100,7 @@ fun RegisterScreen(
         // Sign Up button
         Button(
             onClick = {
-                if (password != confirmPassword) {
-                    Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
-                } else {
-                    Firebase.auth.createUserWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { result ->
-                            val user = result.user
-                            user?.let {
-                                viewModel.registerWithFirebase(
-                                    uid = it.uid,
-                                    email = it.email ?: "",
-                                    name = username,
-                                    avatar = it.photoUrl?.toString()
-                                )
-                            }
-                        }
-                        .addOnFailureListener {
-                            Toast.makeText(context, "Registration failed", Toast.LENGTH_SHORT).show()
-                        }
-                }
+                viewModel.validateAndRegister(email, password, confirmPassword, username)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,13 +114,24 @@ fun RegisterScreen(
         ) {
             Text("SIGN UP", fontSize = 16.sp)
         }
+
         when (registerState) {
             is RegisterState.Loading -> CircularProgressIndicator()
-            is RegisterState.Success -> Text("Đăng ký thành công!")
-            is RegisterState.Error -> Text(
-                (registerState as RegisterState.Error).message,
-                color = Color.Red
-            )
+            is RegisterState.Success -> {
+                LaunchedEffect(Unit) {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            }
+
+            is RegisterState.Error -> {
+                val errorMessage = (registerState as RegisterState.Error).message
+                LaunchedEffect(errorMessage) {
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                }
+            }
+
             else -> {}
         }
 
@@ -152,7 +144,7 @@ fun RegisterScreen(
             Text(
                 text = "SIGN IN",
                 color = Color.Blue,
-                modifier = Modifier.clickable {  navController.navigate(Screen.Login.route) }
+                modifier = Modifier.clickable { onSignInClick() }
             )
         }
 
@@ -166,20 +158,5 @@ fun RegisterScreen(
                 .fillMaxWidth(),
             textAlign = TextAlign.Center
         )
-    }
-
-    when (registerState) {
-        is RegisterState.Loading -> CircularProgressIndicator()
-        is RegisterState.Success -> {
-            LaunchedEffect(Unit) {
-                navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Register.route) { inclusive = true }
-                }
-            }
-        }
-        is RegisterState.Error -> {
-            Text((registerState as RegisterState.Error).message, color = Color.Red)
-        }
-        else -> {}
     }
 }
